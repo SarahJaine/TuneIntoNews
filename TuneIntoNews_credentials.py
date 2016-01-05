@@ -1,0 +1,8 @@
+## Twitter keys
+CONSUMER_KEY=''
+CONSUMER_SECRET=''
+ACCESS_KEY=''
+ACCESS_SECRET=''
+
+## NPR key
+NPR_KEY=''
