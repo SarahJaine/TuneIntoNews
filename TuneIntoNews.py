@@ -1,26 +1,30 @@
-import requests
-from textblob import TextBlob
-from random import randint
-import tweepy
-import os, site, sys
-
-from TuneIntoNews_credentials import CONSUMER_KEY, CONSUMER_SECRET, ACCESS_KEY, ACCESS_SECRET, NPR_KEY
-
 ###################
 ### Virtual Env ###
+### And Imports ###
 ###################
 
-## Tell wsgi to add the Python site-packages to its path
-site.addsitedir('/Users/sz/Documents/TuneIntoNews/TuneIntoNews/lib/python2.7/site-packages')
+import os, site, sys
+from random import randint, choice
+from TuneIntoNews_credentials import CONSUMER_KEY, CONSUMER_SECRET, ACCESS_KEY, ACCESS_SECRET, NPR_KEY
 
-## Activate my virtual environment
-activate_this = os.path.expanduser('/Users/sz/Documents/TuneIntoNews/TuneIntoNews/bin/activate_this.py')
-execfile(activate_this, dict(__file__=activate_this))
+try:
+	## Tell wsgi to add the Python site-packages to its path
+	site.addsitedir('/Users/sz/Documents/TuneIntoNews/tuneintonews/lib/python2.7/site-packages')
 
-## Calculate the path based on the location of the WSGI script
-project = '/Users/sz/Documents/TuneIntoNews/TuneIntoNews'
-workspace = os.path.dirname(project)
-sys.path.append(workspace)
+	## Activate my virtual environment
+	activate_this = os.path.expanduser('/Users/sz/Documents/TuneIntoNews/tuneintonews/bin/activate_this.py')
+	execfile(activate_this, dict(__file__=activate_this))
+
+	## Calculate the path based on the location of the WSGI script
+	project = '/Users/sz/Documents/TuneIntoNews/tuneintonews'
+	workspace = os.path.dirname(project)
+	sys.path.append(workspace)
+except:
+	print "Error with virtual env"
+
+import requests
+from textblob import TextBlob
+import tweepy
 
 ###################
 ##### NPR API #####
@@ -49,15 +53,10 @@ for text_and_tag in story_title_blob.tags:
 ### Spotify API ###
 ###################
 
-def most_popular(x):
-	pop_rate=max(x)
-	x.remove(max(x))
-	return pop_rate
-
 ## Request tracks, assign needed song details to simplified dictionary
 track_details={}
 for search_term in news_nouns:
-	url_spotify='https://api.spotify.com/v1/search?q=track:{0}+NOT+christmas&type=track&market=US&limit=5'.format(search_term)
+	url_spotify='https://api.spotify.com/v1/search?q=track:{0}+NOT+christmas&type=track&market=US&limit=6'.format(search_term)
 	response=requests.get(url_spotify)
 	tracks=response.json()
 	try:
@@ -92,63 +91,75 @@ for track in track_details.keys():
 	if news_nouns_total>1:
 		track_details[track]['track_popularity']=track_details[track]['track_popularity']*news_nouns_total
 
-## Find 2 highest popularity ratings
+## Find 6 highest popularity ratings
 popularity_all=[]
 for track in track_details.keys():
 	popularity_all.append(track_details[track]['track_popularity'])
-pop_rate_1 = most_popular(popularity_all)
-if len(popularity_all)>0:
-	pop_rate_2 = most_popular(popularity_all)
+popularity_all=sorted(popularity_all)[-6:]
 
-## Output 2 songs that match one of 2 highest popularity ratings
-return_song_counter=1
+## Mark song with popularity rating in top 6 with True 'return song' value 
 for track in track_details.keys():
-	if return_song_counter<=2:
-		if track_details[track]['track_popularity']==pop_rate_1 or track_details[track]['track_popularity']==pop_rate_2:
-			try:
-				track_details[track]['return_song']=True
-				return_song_counter+=1
-			except UnicodeEncodeError:
-				track_details.pop(track, None)
-				pass
+	if track_details[track]['track_popularity'] in popularity_all:
+		try:
+			track_details[track]['return_song']=True
+		except UnicodeEncodeError:
+			track_details.pop(track, None)
+			pass
 	## Remove all other songs from the dictionary
 	if track_details[track]['return_song'] == False:
 		track_details.pop(track)
+
+## Create list of indexes for song_picker variable below
+song_indexes=range(0,len(track_details))
 
 ###################
 ### Twitter API ###
 ###################
 
-auth = tweepy.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
-auth.set_access_token(ACCESS_KEY, ACCESS_SECRET)
-api = tweepy.API(auth)
+try:
+	auth = tweepy.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
+	auth.set_access_token(ACCESS_KEY, ACCESS_SECRET)
+	api = tweepy.API(auth)
 
-## Loop through all tweets @fTuneIntoNews has tweeted, store the status IDs as a list
-statuses = []
-for status in api.user_timeline():
-    statuses.append(status.id)
+	## Loop through all tweets @fTuneIntoNews has tweeted, store the status IDs as a list
+	statuses = []
+	for status in api.user_timeline():
+	    statuses.append(status.id)
 
-## Create a variable to hold @TuneIntoNews most recent tweet's status ID
-most_recent = statuses[0]
+	## Create a variable to hold @TuneIntoNews most recent tweet's status ID
+	most_recent = statuses[0]
 
-## Check for @ mentions since most recent status ID (aka the last time the bot tweeted)
-if most_recent:
-    mentions = api.mentions_timeline(since_id=most_recent)
-else:
-    mentions = ()
-for mention in mentions:
-    request = mention.text
-    requester = mention.user.screen_name
-    ## Mention must contain word "play"
-    if "play" in request.lower():
-    	## Find length of tweet without urls, set trim if tweet is longer than 140 char
-    	tweet_wo_url=""".@{0}_"{1}"_url_pairs_well_with_url""".format(requester, story_title)
-    	trim=140-23-23-len(tweet_wo_url)+3+3
-    	ellipsis=""
-    	if trim<0:
-    		trim-=3
-    		ellipsis="..."
-    	else:
-    		trim=len(story_title)
-    		ellipsis=""
-    	api.update_status(status=""".@{0} "{1}{2}" {3} pairs well with {4}""".format(requester, story_title[:trim].strip(), ellipsis, story_url, track_details.values()[0]['track_url']))
+	## Check for @ mentions since most recent status ID (aka the last time the bot tweeted)
+	if most_recent:
+	    mentions = api.mentions_timeline(since_id=most_recent)
+	else:
+	    mentions = ()
+	for mention in mentions:
+	    request = mention.text
+	    requester = mention.user.screen_name
+	    ## Mention must contain word "play"
+	    if "play" in request.lower():
+	    	## Find length of tweet, set trim if tweet is longer than 140 char
+	    	tweet_wo_url=""".@{0}_"{1}"_url_pairs_well_with_url""".format(requester, story_title)
+	    	trim=140-23-23-len(tweet_wo_url)+3+3
+	    	ellipsis=""
+	    	if trim<0:
+	    		trim-=3
+	    		ellipsis="..."
+	    	else:
+	    		trim=len(story_title)
+	    		ellipsis=""
+	    	## Try to send reply tweet to each mention 3 times before failing
+	    	for attempt in range(0,3):
+				try:
+					## Choose random index from song index list, then remove that index; prevents duplicate tweet error when replying mult mentions at once
+					song_picker=choice(song_indexes)
+					song_indexes.remove(song_picker)
+					print tweet_wo_url
+					api.update_status(status=""".@{0} "{1}{2}" {3} pairs well with {4}""".format(requester, story_title[:trim].strip(), ellipsis, story_url, track_details.values()[song_picker]['track_url']))
+				except:
+					print "Error api.update_status"
+					continue
+				break
+except:
+	print "Error with Twitter - END OF LOG"
