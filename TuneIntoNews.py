@@ -21,7 +21,7 @@ try:
 except:
 	print "Error with virtual env"
 
-import requestsexit
+import requests
 from textblob import TextBlob
 import tweepy
 
