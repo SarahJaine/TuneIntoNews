@@ -9,20 +9,19 @@ from TuneIntoNews_credentials import CONSUMER_KEY, CONSUMER_SECRET, ACCESS_KEY, 
 
 try:
 	## Tell wsgi to add the Python site-packages to its path
-	site.addsitedir('/Users/sz/Documents/TuneIntoNews/tuneintonews/lib/python2.7/site-packages')
-
+	site.addsitedir('/home/sarahjaine/.virtualenvs/TuneIntoNews/lib/python2.7/site-packages')
 	## Activate my virtual environment
-	activate_this = os.path.expanduser('/Users/sz/Documents/TuneIntoNews/tuneintonews/bin/activate_this.py')
+	activate_this = os.path.expanduser('/home/sarahjaine/.virtualenvs/TuneIntoNews/bin/activate_this.py')
 	execfile(activate_this, dict(__file__=activate_this))
 
 	## Calculate the path based on the location of the WSGI script
-	project = '/Users/sz/Documents/TuneIntoNews/tuneintonews'
+	project = '/home/sarahjaine/webapps/tuneintonews/TuneIntoNews/'
 	workspace = os.path.dirname(project)
 	sys.path.append(workspace)
 except:
 	print "Error with virtual env"
 
-import requests
+import requestsexit
 from textblob import TextBlob
 import tweepy
 
@@ -43,20 +42,19 @@ try:
 	## Create a variable to hold @TuneIntoNews most recent tweet's status ID
 	most_recent_tweet = statuses[0]
 
-	## Check for @ mentions since most recent status ID (aka the last time the bot tweeted)
+	## Check for mentions since most recent status ID (aka the last time the bot tweeted)
 	if most_recent_tweet:
 		mentions = api.mentions_timeline(since_id=most_recent_tweet)
 	else:
 	    mentions = ()
 
-	### End if no new tweets
+	### End if no new mentions
 	if len(mentions) == 0:
-	    print "--- Zero mentions; no need to update ---"
+	    print "--- Zero new mentions; no need to update ---"
 	    sys.exit()
-
 	else:
-		print "--- {} new mentions ---".format(len(mentions))
-except:
+		print "--- {} new mention ---".format(len(mentions))
+except Exception:
 	print "--- Failed to check mentions ---"
 	sys.exit()
 
@@ -87,10 +85,16 @@ for text_and_tag in story_title_blob.tags:
 ### Spotify API ###
 ###################
 
+## Decide how many tracks to return for each search term by mult of mentions
+if len(mentions)>6:
+	searches_needed=20
+else:
+	searches_needed=len(mentions)*3
+
 ## Request tracks, assign needed song details to simplified dictionary
 track_details={}
 for search_term in news_nouns:
-	url_spotify='https://api.spotify.com/v1/search?q=track:{0}+NOT+christmas&type=track&market=US&limit=6'.format(search_term)
+	url_spotify='https://api.spotify.com/v1/search?q=track:{0}+NOT+christmas&type=track&market=US&limit={1}'.format(search_term,searches_needed)
 	response=requests.get(url_spotify)
 	tracks=response.json()
 	try:
@@ -125,11 +129,12 @@ for track in track_details.keys():
 	if news_nouns_total>1:
 		track_details[track]['track_popularity']=track_details[track]['track_popularity']*news_nouns_total
 
-## Find 6 highest popularity ratings
+## Find most popular tracks (3 tracks for each mention)
+songs_needed=len(mentions)*-3
 popularity_all=[]
 for track in track_details.keys():
 	popularity_all.append(track_details[track]['track_popularity'])
-popularity_all=sorted(popularity_all)[-6:]
+popularity_all=sorted(popularity_all)[songs_needed:]
 
 ## Mark song with popularity rating in top 6 with True 'return song' value 
 for track in track_details.keys():
@@ -172,7 +177,7 @@ try:
 					## Choose random index from song index list, then remove that index; prevents duplicate tweet error when replying mult mentions at once
 					song_picker=choice(song_indexes)
 					song_indexes.remove(song_picker)
-					print tweet_wo_url
+					print """.@{0} "{1}{2}" {3} pairs well with {4}""".format(requester, story_title[:trim].strip(), ellipsis, story_url, track_details.values()[song_picker]['track_url'])
 					api.update_status(status=""".@{0} "{1}{2}" {3} pairs well with {4}""".format(requester, story_title[:trim].strip(), ellipsis, story_url, track_details.values()[song_picker]['track_url']))
 				except:
 					print "Error api.update_status"
