@@ -27,6 +27,40 @@ from textblob import TextBlob
 import tweepy
 
 ###################
+### Twitter API ###
+###################
+
+try:
+	auth = tweepy.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
+	auth.set_access_token(ACCESS_KEY, ACCESS_SECRET)
+	api = tweepy.API(auth)
+
+	## Loop through all tweets @fTuneIntoNews has tweeted, store the status IDs as a list
+	statuses = []
+	for status in api.user_timeline():
+	    statuses.append(status.id)
+
+	## Create a variable to hold @TuneIntoNews most recent tweet's status ID
+	most_recent_tweet = statuses[0]
+
+	## Check for @ mentions since most recent status ID (aka the last time the bot tweeted)
+	if most_recent_tweet:
+		mentions = api.mentions_timeline(since_id=most_recent_tweet)
+	else:
+	    mentions = ()
+
+	### End if no new tweets
+	if len(mentions) == 0:
+	    print "--- Zero mentions; no need to update ---"
+	    sys.exit()
+
+	else:
+		print "--- {} new mentions ---".format(len(mentions))
+except:
+	print "--- Failed to check mentions ---"
+	sys.exit()
+
+###################
 ##### NPR API #####
 ###################
 
@@ -117,23 +151,6 @@ song_indexes=range(0,len(track_details))
 ###################
 
 try:
-	auth = tweepy.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
-	auth.set_access_token(ACCESS_KEY, ACCESS_SECRET)
-	api = tweepy.API(auth)
-
-	## Loop through all tweets @fTuneIntoNews has tweeted, store the status IDs as a list
-	statuses = []
-	for status in api.user_timeline():
-	    statuses.append(status.id)
-
-	## Create a variable to hold @TuneIntoNews most recent tweet's status ID
-	most_recent = statuses[0]
-
-	## Check for @ mentions since most recent status ID (aka the last time the bot tweeted)
-	if most_recent:
-	    mentions = api.mentions_timeline(since_id=most_recent)
-	else:
-	    mentions = ()
 	for mention in mentions:
 	    request = mention.text
 	    requester = mention.user.screen_name
