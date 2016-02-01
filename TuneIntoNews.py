@@ -34,7 +34,7 @@ try:
 	auth.set_access_token(ACCESS_KEY, ACCESS_SECRET)
 	api = tweepy.API(auth)
 
-	## Loop through all tweets @fTuneIntoNews has tweeted, store the status IDs as a list
+	## Loop through all tweets @TuneIntoNews has tweeted, store the status IDs as a list
 	statuses = []
 	for status in api.user_timeline():
 	    statuses.append(status.id)
